@@ -1,7 +1,10 @@
-FROM nvidia/cuda:10.1-base-ubuntu16.04
+FROM nvidia/cuda:10.1-base-ubuntu18.04
+
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Install some basic utilities
 RUN apt-get update && apt-get install -y \
+    software-properties-common \
     curl \
     ca-certificates \
     sudo \
@@ -25,6 +28,7 @@ RUN apt-get update && apt-get install -y \
     openmpi-bin \
     openmpi-doc \
     libglib2.0-0 \
+    libglew2.0 \
     libglfw3 \
     libsm6 \
     libxext6 \
@@ -43,6 +47,9 @@ RUN apt-get update && apt-get install -y \
     tzdata \
     patchelf \
  && rm -rf /var/lib/apt/lists/*
+
+RUN curl -o /usr/local/bin/patchelf https://s3-us-west-2.amazonaws.com/openai-sci-artifacts/manual-builds/patchelf_0.9_amd64.elf \
+    && chmod +x /usr/local/bin/patchelf
 
 # Create a working directory
 RUN mkdir /app
@@ -77,13 +84,25 @@ RUN conda install -y -c pytorch \
     "torchvision=0.5.0=py37_cu101" \
  && conda clean -ya
 
-RUN cd /home/user && \
-    wget -c https://mujoco.org/download/mujoco210-linux-x86_64.tar.gz && \
-    tar -vzxf mujoco210-linux-x86_64.tar.gz && \
-    mkdir -p .mujoco && \
-    mv mujoco210 .mujoco/mujoco210
+# RUN cd /home/user && \
+#     wget -c https://mujoco.org/download/mujoco210-linux-x86_64.tar.gz && \
+#     tar -vzxf mujoco210-linux-x86_64.tar.gz && \
+#     mkdir -p .mujoco && \
+#     mv mujoco210 .mujoco/mujoco210 && \
+#     rm -rf mujoco210-linux-x86_64.tar.gz 
 
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/user/.mujoco/mujoco210/bin
+
+ENV LANG C.UTF-8
+
+RUN mkdir -p /home/user/.mujoco \
+    && wget https://mujoco.org/download/mujoco210-linux-x86_64.tar.gz -O mujoco.tar.gz \
+    && tar -xf mujoco.tar.gz -C /home/user/.mujoco \
+    && rm mujoco.tar.gz
+
+# ENV LD_LIBRARY_PATH /root/.mujoco/mujoco210/bin:${LD_LIBRARY_PATH}
+ENV LD_LIBRARY_PATH /usr/local/nvidia/lib64:${LD_LIBRARY_PATH}
+
 RUN python3 -m pip install -r requirements.txt 
 
 # Set the default command to python3
